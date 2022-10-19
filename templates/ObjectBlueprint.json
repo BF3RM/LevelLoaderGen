@@ -1,0 +1,16 @@
+{
+  "$type": "ObjectBlueprint",
+  "Name": "Name",
+  "PropertyConnections": [],
+  "LinkConnections": [],
+  "EventConnections": [],
+  "Descriptor": null,
+  "NeedNetworkId": false,
+  "InterfaceHasConnections": false,
+  "AlwaysCreateEntityBusClient": false,
+  "AlwaysCreateEntityBusServer": false,
+  "Object": {
+    "PartitionGuid": "PartitionGuid",
+    "InstanceGuid": "InstanceGuid"
+  }
+}

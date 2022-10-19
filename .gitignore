@@ -1,0 +1,5 @@
+out
+in/*.json
+commands.txt
+sb
+*__pycache__

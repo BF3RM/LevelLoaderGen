@@ -1,0 +1,117 @@
+{
+  "PrimaryInstanceGuid": "SubWorldDataGuid",
+  "Name": "NoHavokTest/Partition",
+  "PartitionGuid": "PartitionGuid",
+  "Instances": {
+    "SubWorldDataGuid": {
+      "$type": "SubWorldData",
+      "Name": "NoHavokTest/Bundle",
+      "PropertyConnections": [],
+      "LinkConnections": [],
+      "EventConnections": [],
+      "Descriptor": {
+        "PartitionGuid": "PartitionGuid",
+        "InstanceGuid": "DescriptorGuid"
+      },
+      "NeedNetworkId": true,
+      "InterfaceHasConnections": false,
+      "AlwaysCreateEntityBusClient": false,
+      "AlwaysCreateEntityBusServer": false,
+      "Objects": [
+        {
+          "PartitionGuid": "PartitionGuid",
+          "InstanceGuid": "WorldPartRODGuid"
+        }
+      ],
+      "RegistryContainer": {
+        "PartitionGuid": "PartitionGuid",
+        "InstanceGuid": "RegistryGuid"
+      },
+      "IsWin32SubLevel": true,
+      "IsXenonSubLevel": true,
+      "IsPs3SubLevel": true,
+      "RememberStateOnStreamOut": false
+    },
+    "DescriptorGuid": {
+      "$type": "InterfaceDescriptorData",
+      "Fields": [],
+      "InputEvents": [],
+      "OutputEvents": [],
+      "InputLinks": [],
+      "OutputLinks": []
+    },
+    "RegistryGuid": {
+      "$type": "RegistryContainer",
+      "EntityRegistry": [],
+      "AssetRegistry": [],
+      "BlueprintRegistry": [
+        {
+          "PartitionGuid": "PartitionGuid",
+          "InstanceGuid": "SubWorldDataGuid"
+        },
+        {
+          "PartitionGuid": "PartitionGuid",
+          "InstanceGuid": "WorldPartDataGuid"
+        }
+      ],
+      "ReferenceObjectRegistry": [
+        {
+          "PartitionGuid": "PartitionGuid",
+          "InstanceGuid": "WorldPartRODGuid"
+        }
+      ]
+    },
+    "WorldPartRODGuid": {
+      "$type": "WorldPartReferenceObjectData",
+      "IndexInBlueprint": 3000,
+      "IsEventConnectionTarget": 3,
+      "IsPropertyConnectionTarget": 3,
+      "BlueprintTransform": {
+        "right": {
+          "x": 1.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "up": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forward": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "trans": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "Blueprint": {
+        "PartitionGuid": "PartitionGuid",
+        "InstanceGuid": "WorldPartDataGuid"
+      },
+      "ObjectVariation": null,
+      "StreamRealm": "StreamRealm_None",
+      "CastSunShadowEnable": true,
+      "Excluded": false
+    },
+    "WorldPartDataGuid": {
+      "$type": "WorldPartData",
+      "Name": "Levels/XP5_002/XP5_002/StaticModelGroup_Physics_Win32",
+      "PropertyConnections": [],
+      "LinkConnections": [],
+      "EventConnections": [],
+      "Descriptor": null,
+      "NeedNetworkId": false,
+      "InterfaceHasConnections": false,
+      "AlwaysCreateEntityBusClient": false,
+      "AlwaysCreateEntityBusServer": false,
+      "Objects": [],
+      "HackToSolveRealTimeTweakingIssue": "00000000-0000-0000-0000-000000000000",
+      "UseDeferredEntityCreation": false,
+      "Enabled": true
+    }
+  }
+}

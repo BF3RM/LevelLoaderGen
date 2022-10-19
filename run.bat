@@ -1,0 +1,3 @@
+python lvlloaderbundlegen.py
+python BuildCLLBundles.py
+pause
