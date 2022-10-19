@@ -21,7 +21,8 @@ def main(rimePath):
 	commands = []
 
 	# Remove sb folder
-	# shutil.rmtree(os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME))
+	# if os.path.exists(os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME)):
+	# 	shutil.rmtree(os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME))
 
 
 	print('Superbundles:')

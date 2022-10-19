@@ -147,12 +147,18 @@ f.close()
 inPath = os.path.join(os.getcwd(), 'in')
 
 # Remove out/ folder
-shutil.rmtree(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME))
+if os.path.exists(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME)):
+	shutil.rmtree(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME))
 
 for filename in os.listdir(inPath):
 	filePath = os.path.join(inPath, filename)
 	
 	if not os.path.isfile(filePath):
+		continue
+
+	extension = os.path.splitext(filename)[1]
+
+	if extension != '.json':
 		continue
 
 	with open(filePath, 'r') as f:
