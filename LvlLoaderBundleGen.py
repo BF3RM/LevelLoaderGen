@@ -7,6 +7,9 @@ import shutil
 from templates import subWorldDataTemp, objectBlueprintTemp, referenceObjectDataTemp, effectReferenceObjectDataTemp
 
 BUNDLE_PREFIX = 'CustomLevels'
+INTERMEDIATE_FOLDER_NAME = 'intermediate'
+INPORT_FOLDER_NAME = 'in'
+MAP_SAVES_FOLDER_NAME = 'map_saves'
 EXPORT_FOLDER_NAME = 'out'
 EBX_FOLDER_NAME = 'ebx_json'
 LUA_FOLDER_NAME = 'lua'
@@ -138,20 +141,73 @@ def ProcessSaveFile(jsonSave, worldPartDataName):
 
 	return ebx, vanillaRODs
 
+# Outputs a lua file with the gamemode maps, allowing LevelLoader to work with custom bundles and use the same bundle for
+# multiple gamemodes. Supports custom gamemodes too
+def SaveBundlesLuaMap(bundlesLuaMap):
+	if bundlesLuaMap:
+		luaOutPath = os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, LUA_FOLDER_NAME)
+		if not os.path.exists(luaOutPath):
+			os.makedirs(luaOutPath)
+
+		bundlesLuaMapJSON = json.dumps(bundlesLuaMap, indent = 1)
+		bundlesLuaMapJSON = 'return [[\n' + bundlesLuaMapJSON + '\n]]'
+
+		with open(os.path.join(luaOutPath, 'BundlesMap.lua'), "w") as f:
+			f.write(bundlesLuaMapJSON)
+		f.close()
+
+# Save EBX in JSON files to be later compiled by Rime
+def SaveEBXAsJSON(ebx, mapName, gamemodeName):
+	ebxJSON = json.dumps(ebx, indent = 2)
+
+	ebxOutPath = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME, mapName)
+	if not os.path.exists(ebxOutPath):
+		os.makedirs(ebxOutPath)
+
+	with open(os.path.join(ebxOutPath, gamemodeName + '.json'), "w") as f:
+		f.write(ebxJSON)
+	f.close()
+
+def SaveLuaVanillaModifications(vanillaRODs, mapName, gamemodeName):
+	# Save list of modified vanilla RODs in Lua tables
+	vanillaRODsJSON = json.dumps(vanillaRODs, indent = 1)
+	vanillaRODsJSON = 'return [[\n' + vanillaRODsJSON + '\n]]'
+
+	outFileName = mapName + '_' + gamemodeName
+	luaOutPath = os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, LUA_FOLDER_NAME, mapName)
+	if not os.path.exists(luaOutPath):
+		os.makedirs(luaOutPath)
+
+	with open(os.path.join(luaOutPath, outFileName + '.lua'), "w") as f:
+		f.write(vanillaRODsJSON)
+	f.close()
+
 ##############################################
 
 with open(os.path.join(os.getcwd(), 'VariationMap.json'), 'r') as f:
 	variationMap = json.loads(f.read())
 f.close()
 
-inPath = os.path.join(os.getcwd(), 'in')
+inPath = os.path.join(os.getcwd(), INPORT_FOLDER_NAME)
+mapSavesPath = os.path.join(inPath, MAP_SAVES_FOLDER_NAME)
 
-# Remove out/ folder
+# Load gamemode maps (for supporting custom gamemode names)
+gamemodeMapPath = os.path.join(inPath, 'gamemode_map.json')
+gamemodeMap = None
+if (os.path.exists(gamemodeMapPath)):
+	with open(gamemodeMapPath, 'r') as f:
+		gamemodeMap = json.loads(f.read())
+	f.close()
+bundlesLuaMap = {}
+
+# Remove out and intermediate folder
 if os.path.exists(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME)):
 	shutil.rmtree(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME))
+if os.path.exists(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME)):
+	shutil.rmtree(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME))
 
-for filename in os.listdir(inPath):
-	filePath = os.path.join(inPath, filename)
+for filename in os.listdir(mapSavesPath):
+	filePath = os.path.join(mapSavesPath, filename)
 	
 	if not os.path.isfile(filePath):
 		continue
@@ -167,6 +223,15 @@ for filename in os.listdir(inPath):
 
 	print('Processing file ' + filename)
 
+	# Save the gamemodes that this bundle will be loaded in a new
+	# lua map: key -> map+gamemode loaded, value -> bundle to load
+	# Basically it inverts the provided gamemode map
+	if gamemodeMap:
+		bundlePath = jsonSave['header']['mapName'] + '/' + jsonSave['header']['gameModeName']
+		if bundlePath in gamemodeMap:
+			for x in gamemodeMap[bundlePath]:
+				bundlesLuaMap[x] = bundlePath
+	
 	bundleName = BUNDLE_PREFIX + "/" + jsonSave['header']['mapName'] + '/' + jsonSave['header']['gameModeName']
 	partitionName = bundleName.lower()
 	worldPartDataName = BUNDLE_PREFIX + "/" + jsonSave['header']['mapName'] + '/' + 'Main'
@@ -177,27 +242,9 @@ for filename in os.listdir(inPath):
 	swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
 	swd['Name'] = bundleName
 
-	ebxJSON = json.dumps(ebx, indent = 2)
-
-
 	# Save EBX in JSON files
-	ebxOutPath = os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, EBX_FOLDER_NAME, jsonSave['header']['mapName'])
-	if not os.path.exists(ebxOutPath):
-		os.makedirs(ebxOutPath)
+	SaveEBXAsJSON(ebx, jsonSave['header']['mapName'], jsonSave['header']['gameModeName'])
 
-	outFileName = jsonSave['header']['mapName'] + '_' + jsonSave['header']['gameModeName']
-	with open(os.path.join(ebxOutPath, jsonSave['header']['gameModeName'] + '.json'), "w") as f:
-		f.write(ebxJSON)
-	f.close()
+	SaveLuaVanillaModifications(vanillaRODs, jsonSave['header']['mapName'], jsonSave['header']['gameModeName'])
 
-	# Save list of modified vanilla RODs in Lua tables
-	vanillaRODsJSON = json.dumps(vanillaRODs, indent = 1)
-	vanillaRODsJSON = 'return [[\n' + vanillaRODsJSON + '\n]]'
-
-	luaOutPath = os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, LUA_FOLDER_NAME, jsonSave['header']['mapName'])
-	if not os.path.exists(luaOutPath):
-		os.makedirs(luaOutPath)
-
-	with open(os.path.join(luaOutPath, outFileName + '.lua'), "w") as f:
-		f.write(vanillaRODsJSON)
-	f.close()
+SaveBundlesLuaMap(bundlesLuaMap)

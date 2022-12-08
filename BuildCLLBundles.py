@@ -7,14 +7,16 @@ import shutil
 WIN32_PREFIX = 'Win32'
 BUNDLE_PREFIX = 'CustomLevels'
 FROSTBITE_VER = 'Frostbite2_0'
-EBX_JSON_FOLDER_NAME = 'out/ebx_json'
+INTERMEDIATE_FOLDER_NAME = 'intermediate'
+EXPORT_FOLDER_NAME = 'out'
+EBX_JSON_FOLDER_NAME = 'ebx_json'
 SB_OUTPUT_FOLDER_NAME = 'sb'
 
 # TODO: delete out and sb folders before parsing
 
 def main(rimePath):
-	inputPath = os.path.join(os.getcwd(), EBX_JSON_FOLDER_NAME)
-	outputPath = os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME)
+	inputPath = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_JSON_FOLDER_NAME)
+	outputPath = os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, SB_OUTPUT_FOLDER_NAME)
 	
 	if not os.path.exists(outputPath):
 		os.makedirs(outputPath)
@@ -24,7 +26,7 @@ def main(rimePath):
 	# if os.path.exists(os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME)):
 	# 	shutil.rmtree(os.path.join(os.getcwd(), SB_OUTPUT_FOLDER_NAME))
 
-
+	superBundleNames = []
 	print('Superbundles:')
 
 	for mapName in os.listdir(inputPath):
@@ -51,11 +53,17 @@ def main(rimePath):
 		
 		#build superbundle
 		commands.append('build\n\n')
+		superBundleNames.append(sbName)
 		print(sbName)
 
 	#save commands in commands.txt
 	with open(os.path.join(os.getcwd(), 'commands.txt'), "w") as f:
 		f.writelines(commands)
+	f.close()
+
+	#save super bundle names in superbundles.json
+	with open(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME, 'superbundles.json'), "w") as f:
+		f.writelines(json.dumps(superBundleNames, indent = 2))
 	f.close()
 	
 	print('Attempting to compile with Rime...')
