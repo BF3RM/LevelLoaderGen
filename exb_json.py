@@ -10,259 +10,244 @@ BUNDLE_PREFIX = 'CustomLevels'
 INTERMEDIATE_FOLDER_NAME = 'intermediate'
 INPORT_FOLDER_NAME = 'in'
 MAP_SAVES_FOLDER_NAME = 'map_saves'
-EXPORT_FOLDER_NAME = 'out'
 EBX_FOLDER_NAME = 'ebx_json'
-LUA_FOLDER_NAME = 'lua'
+LUA_LEVELS_PATH = os.path.join('ext', 'Shared', 'Levels')
 
 
-def CreateInitialPartitionStruct(name):
-    ebx = copy.deepcopy(subWorldDataTemp)
-    partitionGuid = str(uuid.uuid4())
-    ebx['PartitionGuid'] = partitionGuid
+def create_initial_partition_struct(name):
+	ebx = copy.deepcopy(subWorldDataTemp)
+	partition_guid = str(uuid.uuid4())
+	ebx['PartitionGuid'] = partition_guid
 
-    # TODO: guids should not be random maybe
-    subWorldDataGuid = str(uuid.uuid4())
-    descriptorGuid = str(uuid.uuid4())
-    registryGuid = str(uuid.uuid4())
-    worldPartDataGuid = str(uuid.uuid4())
-    worldPartRODGuid = str(uuid.uuid4())
-    ebx['PrimaryInstanceGuid'] = subWorldDataGuid
+	# TODO: guids should not be random maybe
+	sub_world_data_guid = str(uuid.uuid4())
+	descriptor_guid = str(uuid.uuid4())
+	registry_guid = str(uuid.uuid4())
+	world_part_data_guid = str(uuid.uuid4())
+	world_part_rod_guid = str(uuid.uuid4())
+	ebx['PrimaryInstanceGuid'] = sub_world_data_guid
 
-    # recreate the dict with the generated guids as keys
-    newDict = {}
-    newDict[subWorldDataGuid] = ebx['Instances']['SubWorldDataGuid']
-    newDict[descriptorGuid] = ebx['Instances']['DescriptorGuid']
-    newDict[registryGuid] = ebx['Instances']['RegistryGuid']
-    newDict[worldPartDataGuid] = ebx['Instances']['WorldPartDataGuid']
-    newDict[worldPartRODGuid] = ebx['Instances']['WorldPartRODGuid']
+	# recreate the dict with the generated guids as keys
+	new_dict = {
+		sub_world_data_guid: ebx['Instances']['SubWorldDataGuid'],
+		descriptor_guid: ebx['Instances']['DescriptorGuid'],
+		registry_guid: ebx['Instances']['RegistryGuid'],
+		world_part_data_guid: ebx['Instances']['WorldPartDataGuid'],
+		world_part_rod_guid: ebx['Instances']['WorldPartRODGuid']
+	}
 
-    newDict[subWorldDataGuid]['Descriptor']['InstanceGuid'] = descriptorGuid
-    newDict[subWorldDataGuid]['Descriptor']['PartitionGuid'] = partitionGuid
-    newDict[subWorldDataGuid]['RegistryContainer']['InstanceGuid'] = registryGuid
-    newDict[subWorldDataGuid]['RegistryContainer']['PartitionGuid'] = partitionGuid
+	new_dict[sub_world_data_guid]['Descriptor']['InstanceGuid'] = descriptor_guid
+	new_dict[sub_world_data_guid]['Descriptor']['PartitionGuid'] = partition_guid
+	new_dict[sub_world_data_guid]['RegistryContainer']['InstanceGuid'] = registry_guid
+	new_dict[sub_world_data_guid]['RegistryContainer']['PartitionGuid'] = partition_guid
 
-    newDict[registryGuid]['BlueprintRegistry'][0]['PartitionGuid'] = partitionGuid
-    newDict[registryGuid]['BlueprintRegistry'][0]['InstanceGuid'] = subWorldDataGuid
-    newDict[registryGuid]['BlueprintRegistry'][1]['PartitionGuid'] = partitionGuid
-    newDict[registryGuid]['BlueprintRegistry'][1]['InstanceGuid'] = worldPartDataGuid
+	new_dict[registry_guid]['BlueprintRegistry'][0]['PartitionGuid'] = partition_guid
+	new_dict[registry_guid]['BlueprintRegistry'][0]['InstanceGuid'] = sub_world_data_guid
+	new_dict[registry_guid]['BlueprintRegistry'][1]['PartitionGuid'] = partition_guid
+	new_dict[registry_guid]['BlueprintRegistry'][1]['InstanceGuid'] = world_part_data_guid
 
-    newDict[worldPartRODGuid]['Blueprint']['PartitionGuid'] = partitionGuid
-    newDict[worldPartRODGuid]['Blueprint']['InstanceGuid'] = worldPartDataGuid
+	new_dict[world_part_rod_guid]['Blueprint']['PartitionGuid'] = partition_guid
+	new_dict[world_part_rod_guid]['Blueprint']['InstanceGuid'] = world_part_data_guid
 
-    newDict[subWorldDataGuid]['Objects'][0]['PartitionGuid'] = partitionGuid
-    newDict[subWorldDataGuid]['Objects'][0]['InstanceGuid'] = worldPartRODGuid
-    newDict[registryGuid]['ReferenceObjectRegistry'][0]['PartitionGuid'] = partitionGuid
-    newDict[registryGuid]['ReferenceObjectRegistry'][0]['InstanceGuid'] = worldPartRODGuid
+	new_dict[sub_world_data_guid]['Objects'][0]['PartitionGuid'] = partition_guid
+	new_dict[sub_world_data_guid]['Objects'][0]['InstanceGuid'] = world_part_rod_guid
+	new_dict[registry_guid]['ReferenceObjectRegistry'][0]['PartitionGuid'] = partition_guid
+	new_dict[registry_guid]['ReferenceObjectRegistry'][0]['InstanceGuid'] = world_part_rod_guid
 
-    newDict[worldPartDataGuid]['Name'] = name
+	new_dict[world_part_data_guid]['Name'] = name
 
-    ebx['Instances'] = newDict
-    return ebx
+	ebx['Instances'] = new_dict
+	return ebx
 
 
-def ProcessSaveFile(jsonSave, worldPartDataName, variationMap):
-    vanillaRODs = {}
-    # Create structure
-    ebx = CreateInitialPartitionStruct(worldPartDataName)
+def process_save_file(json_save: dict, world_part_data_name: str, variation_map: dict):
+	vanilla_rods = {}
+	# Create structure
+	ebx = create_initial_partition_struct(world_part_data_name)
 
-    # clean up
-    swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
-    rc = ebx['Instances'][swd['RegistryContainer']['InstanceGuid']]
-    wprod = ebx['Instances'][swd['Objects'][0]['InstanceGuid']]
-    wpd = ebx['Instances'][wprod['Blueprint']['InstanceGuid']]
+	# clean up
+	swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
+	rc = ebx['Instances'][swd['RegistryContainer']['InstanceGuid']]
+	wprod = ebx['Instances'][swd['Objects'][0]['InstanceGuid']]
+	wpd = ebx['Instances'][wprod['Blueprint']['InstanceGuid']]
 
-    for i, obj in enumerate(jsonSave['data']):
-        # if obj['origin'] != 2:
-        # 	continue
-        if obj['origin'] == 3:  # custom children not supported
-            continue
+	for i, obj in enumerate(json_save['data']):
+		# if obj['origin'] != 2:
+		# 	continue
+		if obj['origin'] == 3:  # custom children not supported
+			continue
 
-        if obj['origin'] == 1:  # vanilla
-            # add to table
-            rod = obj['originalRef']
+		if obj['origin'] == 1:  # vanilla
+			# add to table
+			rod = obj['originalRef']
 
-            if rod['partitionGuid'] in vanillaRODs:
-                vanillaRODs[rod['partitionGuid']].append(rod['instanceGuid'])
-            else:
-                vanillaRODs[rod['partitionGuid']] = [rod['instanceGuid']]
+			if rod['partitionGuid'] in vanilla_rods:
+				vanilla_rods[rod['partitionGuid']].append(rod['instanceGuid'])
+			else:
+				vanilla_rods[rod['partitionGuid']] = [rod['instanceGuid']]
 
-            if 'isDeleted' in obj:
-                continue
+			if 'isDeleted' in obj:
+				continue
 
-        referenceObjectDataGuid = obj['guid'].lower()
+		reference_object_data_guid = obj['guid'].lower()
 
-        referenceObjectData = None
+		reference_object_data = None
 
-        # Use effectROD if it's an effect
-        if obj['blueprintCtrRef']['typeName'] == 'EffectBlueprint':
-            referenceObjectData = copy.deepcopy(effectReferenceObjectDataTemp)
-        else:
-            referenceObjectData = copy.deepcopy(referenceObjectDataTemp)
+		# Use effectROD if it's an effect
+		if obj['blueprintCtrRef']['typeName'] == 'EffectBlueprint':
+			reference_object_data = copy.deepcopy(effectReferenceObjectDataTemp)
+		else:
+			reference_object_data = copy.deepcopy(referenceObjectDataTemp)
 
-        referenceObjectData['Blueprint']['InstanceGuid'] = obj['blueprintCtrRef']['instanceGuid']
-        referenceObjectData['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
-        referenceObjectData['IndexInBlueprint'] = len(wpd['Objects']) + 30001
-        referenceObjectData['IsEventConnectionTarget'] = 3  # Realm.Realm_None
-        # Realm.Realm_None
-        referenceObjectData['IsPropertyConnectionTarget'] = 3
-        referenceObjectData['CastSunShadowEnable'] = True
-        referenceObjectData['Excluded'] = False
+		reference_object_data['Blueprint']['InstanceGuid'] = obj['blueprintCtrRef']['instanceGuid']
+		reference_object_data['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
+		reference_object_data['IndexInBlueprint'] = len(wpd['Objects']) + 30001
+		reference_object_data['IsEventConnectionTarget'] = 3  # Realm.Realm_None
+		# Realm.Realm_None
+		reference_object_data['IsPropertyConnectionTarget'] = 3
+		reference_object_data['CastSunShadowEnable'] = True
+		reference_object_data['Excluded'] = False
 
-        # handle variation
-        variation = None
+		# handle variation
+		variation = None
 
-        if 'variation' in obj:
-            variation = variationMap.get(str(obj['variation']))
+		if 'variation' in obj:
+			variation = variation_map.get(str(obj['variation']))
 
-        if variation != None:
-            referenceObjectData['ObjectVariation'] = {
-                'PartitionGuid': variation[0],
-                'InstanceGuid': variation[1]
-            }
+		if variation is not None:
+			reference_object_data['ObjectVariation'] = {
+				'PartitionGuid': variation[0],
+				'InstanceGuid': variation[1]
+			}
 
-        # Handle transform
-        if 'localTransform' in obj:
-            referenceObjectData['BlueprintTransform'] = obj['localTransform']
-        else:
-            referenceObjectData['BlueprintTransform'] = obj['transform']
+		# Handle transform
+		if 'localTransform' in obj:
+			reference_object_data['BlueprintTransform'] = obj['localTransform']
+		else:
+			reference_object_data['BlueprintTransform'] = obj['transform']
 
-        # Fix left/right difference
-        referenceObjectData['BlueprintTransform']['right'] = referenceObjectData['BlueprintTransform']['left']
-        referenceObjectData['BlueprintTransform'].pop('left')
+		# Fix left/right difference
+		reference_object_data['BlueprintTransform']['right'] = reference_object_data['BlueprintTransform']['left']
+		reference_object_data['BlueprintTransform'].pop('left')
 
-        ref = {
-            'PartitionGuid': ebx['PartitionGuid'],
-            'InstanceGuid': referenceObjectDataGuid
-        }
+		ref = {
+			'PartitionGuid': ebx['PartitionGuid'],
+			'InstanceGuid': reference_object_data_guid
+		}
 
-        # Add to dictionary in root, add reference in worlpartdata.objects and registrycontainer.referenceobjectregistry
-        ebx['Instances'][referenceObjectDataGuid] = referenceObjectData
-        rc['ReferenceObjectRegistry'].append(ref)
-        wpd['Objects'].append(ref)
+		# Add to dictionary in root, add reference in worlpartdata.objects and registrycontainer.referenceobjectregistry
+		ebx['Instances'][reference_object_data_guid] = reference_object_data
+		rc['ReferenceObjectRegistry'].append(ref)
+		wpd['Objects'].append(ref)
 
-    return ebx, vanillaRODs
+	return ebx, vanilla_rods
+
 
 # Outputs a lua file with the gamemode maps, allowing LevelLoader to work with custom bundles and use the same bundle for
 # multiple gamemodes. Supports custom gamemodes too
+def save_bundles_lua_map(bundles_lua_map: dict, out_dir: str):
+	if bundles_lua_map:
+		lua_out_path = os.path.join(out_dir, LUA_LEVELS_PATH)
+		if not os.path.exists(lua_out_path):
+			os.makedirs(lua_out_path)
 
+		bundles_lua_map_json = json.dumps(bundles_lua_map, indent=1)
+		bundles_lua_map_json = 'return [[\n' + bundles_lua_map_json + '\n]]'
 
-def SaveBundlesLuaMap(bundlesLuaMap):
-    if bundlesLuaMap:
-        luaOutPath = os.path.join(
-            os.getcwd(), EXPORT_FOLDER_NAME, LUA_FOLDER_NAME)
-        if not os.path.exists(luaOutPath):
-            os.makedirs(luaOutPath)
+		with open(os.path.join(lua_out_path, 'BundlesMap.lua'), "w") as f:
+			f.write(bundles_lua_map_json)
 
-        bundlesLuaMapJSON = json.dumps(bundlesLuaMap, indent=1)
-        bundlesLuaMapJSON = 'return [[\n' + bundlesLuaMapJSON + '\n]]'
-
-        with open(os.path.join(luaOutPath, 'BundlesMap.lua'), "w") as f:
-            f.write(bundlesLuaMapJSON)
-        f.close()
 
 # Save EBX in JSON files to be later compiled by Rime
+def save_ebx_json(ebx: dict, map_name: str, gamemode_name: str):
+	ebx_out_path = os.path.join(
+		os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME, map_name)
+	if not os.path.exists(ebx_out_path):
+		os.makedirs(ebx_out_path)
+
+	with open(os.path.join(ebx_out_path, gamemode_name + '.json'), "w") as f:
+		json.dump(ebx, f, indent=2)
 
 
-def SaveEBXAsJSON(ebx, mapName, gamemodeName):
-    ebxJSON = json.dumps(ebx, indent=2)
+def save_lua_vanilla_modifications(vanillaRODs: dict, map_name: str, gamemode_name: str, out_dir: str):
+	# Save list of modified vanilla RODs in Lua tables
+	vanillaRODsJSON = json.dumps(vanillaRODs, indent=1)
+	vanillaRODsJSON = 'return [[\n' + vanillaRODsJSON + '\n]]'
 
-    ebxOutPath = os.path.join(
-        os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME, mapName)
-    if not os.path.exists(ebxOutPath):
-        os.makedirs(ebxOutPath)
+	out_file_name = map_name + '_' + gamemode_name
+	lua_out_path = os.path.join(out_dir, LUA_LEVELS_PATH, map_name)
+	if not os.path.exists(lua_out_path):
+		os.makedirs(lua_out_path)
 
-    with open(os.path.join(ebxOutPath, gamemodeName + '.json'), "w") as f:
-        f.write(ebxJSON)
-    f.close()
+	with open(os.path.join(lua_out_path, out_file_name + '.lua'), "w") as f:
+		f.write(vanillaRODsJSON)
+	f.close()
 
-
-def SaveLuaVanillaModifications(vanillaRODs, mapName, gamemodeName):
-    # Save list of modified vanilla RODs in Lua tables
-    vanillaRODsJSON = json.dumps(vanillaRODs, indent=1)
-    vanillaRODsJSON = 'return [[\n' + vanillaRODsJSON + '\n]]'
-
-    outFileName = mapName + '_' + gamemodeName
-    luaOutPath = os.path.join(
-        os.getcwd(), EXPORT_FOLDER_NAME, LUA_FOLDER_NAME, mapName)
-    if not os.path.exists(luaOutPath):
-        os.makedirs(luaOutPath)
-
-    with open(os.path.join(luaOutPath, outFileName + '.lua'), "w") as f:
-        f.write(vanillaRODsJSON)
-    f.close()
 
 ##############################################
 
 
-def GenerateEbxJson():
-    with open(os.path.join(os.getcwd(), 'VariationMap.json'), 'r') as f:
-        variationMap = json.loads(f.read())
-    f.close()
+def generate_ebx_json(out_dir: str):
+	with open(os.path.join(os.getcwd(), 'VariationMap.json'), 'r') as f:
+		variation_map = json.load(f)
 
-    inPath = os.path.join(os.getcwd(), INPORT_FOLDER_NAME)
-    mapSavesPath = os.path.join(inPath, MAP_SAVES_FOLDER_NAME)
+	in_path = os.path.join(os.getcwd(), INPORT_FOLDER_NAME)
+	map_saves_path = os.path.join(in_path, MAP_SAVES_FOLDER_NAME)
 
-    # Load gamemode maps (for supporting custom gamemode names)
-    gamemodeMapPath = os.path.join(inPath, 'gamemode_map.json')
-    gamemodeMap = None
-    if (os.path.exists(gamemodeMapPath)):
-        with open(gamemodeMapPath, 'r') as f:
-            gamemodeMap = json.loads(f.read())
-        f.close()
-    bundlesLuaMap = {}
+	# Load gamemode maps (for supporting custom gamemode names)
+	gamemode_map_path = os.path.join(in_path, 'gamemode_map.json')
+	gamemode_map = None
+	if os.path.exists(gamemode_map_path):
+		with open(gamemode_map_path, 'r') as f:
+			gamemode_map = json.load(f)
 
-    # Remove out and intermediate folder
-    if os.path.exists(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME)):
-        shutil.rmtree(os.path.join(os.getcwd(), EXPORT_FOLDER_NAME))
-    if os.path.exists(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME)):
-        shutil.rmtree(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME))
+	bundles_lua_map = {}
 
-    for filename in os.listdir(mapSavesPath):
-        filePath = os.path.join(mapSavesPath, filename)
+	# Remove intermediate folder
+	if os.path.exists(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME)):
+		shutil.rmtree(os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME))
 
-        if not os.path.isfile(filePath):
-            continue
+	for filename in os.listdir(map_saves_path):
+		file_path = os.path.join(map_saves_path, filename)
 
-        extension = os.path.splitext(filename)[1]
+		if not os.path.isfile(file_path):
+			continue
 
-        if extension != '.json':
-            continue
+		extension = os.path.splitext(filename)[1]
 
-        with open(filePath, 'r') as f:
-            jsonSave = json.loads(f.read())
-        f.close()
+		if extension != '.json':
+			continue
 
-        print('Processing file ' + filename)
+		with open(file_path, 'r') as f:
+			json_save = json.load(f)
 
-        # Save the gamemodes that this bundle will be loaded in a new
-        # lua map: key -> map+gamemode loaded, value -> bundle to load
-        # Basically it inverts the provided gamemode map
-        if gamemodeMap:
-            bundlePath = jsonSave['header']['mapName'] + \
-                '/' + jsonSave['header']['gameModeName']
-            if bundlePath in gamemodeMap:
-                for x in gamemodeMap[bundlePath]:
-                    bundlesLuaMap[x] = bundlePath
+		print('Processing file ' + filename)
 
-        bundleName = BUNDLE_PREFIX + "/" + \
-            jsonSave['header']['mapName'] + '/' + \
-            jsonSave['header']['gameModeName']
-        partitionName = bundleName.lower()
-        worldPartDataName = BUNDLE_PREFIX + "/" + \
-            jsonSave['header']['mapName'] + '/' + 'Main'
+		# Save the gamemodes that this bundle will be loaded in a new
+		# lua map: key -> map+gamemode loaded, value -> bundle to load
+		# Basically it inverts the provided gamemode map
+		if gamemode_map:
+			bundle_path = json_save['header']['mapName'] + '/' + json_save['header']['gameModeName']
+			if bundle_path in gamemode_map:
+				for x in gamemode_map[bundle_path]:
+					bundles_lua_map[x] = bundle_path
 
-        ebx, vanillaRODs = ProcessSaveFile(
-            jsonSave, worldPartDataName, variationMap)
+		bundle_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + json_save['header']['gameModeName']
+		partition_name = bundle_name.lower()
+		world_part_data_name = BUNDLE_PREFIX + "/" + \
+							json_save['header']['mapName'] + '/' + 'Main'
 
-        ebx['Name'] = partitionName
-        swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
-        swd['Name'] = bundleName
+		ebx, vanilla_rods = process_save_file(
+			json_save, world_part_data_name, variation_map)
 
-        # Save EBX in JSON files
-        SaveEBXAsJSON(ebx, jsonSave['header']['mapName'],
-                      jsonSave['header']['gameModeName'])
+		ebx['Name'] = partition_name
+		swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
+		swd['Name'] = bundle_name
 
-        SaveLuaVanillaModifications(
-            vanillaRODs, jsonSave['header']['mapName'], jsonSave['header']['gameModeName'])
+		# Save EBX in JSON files
+		save_ebx_json(ebx, json_save['header']['mapName'], json_save['header']['gameModeName'])
 
-    SaveBundlesLuaMap(bundlesLuaMap)
+		save_lua_vanilla_modifications(
+			vanilla_rods, json_save['header']['mapName'], json_save['header']['gameModeName'], out_dir)
+
+	save_bundles_lua_map(bundles_lua_map, out_dir)

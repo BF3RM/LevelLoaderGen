@@ -1,8 +1,0 @@
-.idea/
-.vscode
-.vs
-.vu/*
-ext/Client/.vu/*
-ext/Shared/.vu/*
-ext/Server/.vu/*
-sb

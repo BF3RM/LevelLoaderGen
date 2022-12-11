@@ -3,3 +3,9 @@ in/**/*.json
 intermediate
 commands.txt
 *__pycache__
+
+.idea/
+.vscode
+.vs
+.vu/*
+**/.vu/*
