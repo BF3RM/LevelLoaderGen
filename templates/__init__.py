@@ -1,34 +1,34 @@
 import json
 import os
 
-path = os.path.join(os.getcwd(), 'templates', 'SubWorldData.json')
+path = os.path.join(os.path.dirname(__file__), 'SubWorldData.json')
 
 if os.path.exists(path) is False:
-    error('SubWorldData template was not found')
+	raise Exception('SubWorldData template was not found')
 
 with open(path, 'r') as f:
-	subWorldDataTemp = json.loads(f.read())
+	subWorldDataTemp = json.load(f)
 
-path = os.path.join(os.getcwd(), 'templates', 'ObjectBlueprint.json')
+path = os.path.join(os.path.dirname(__file__), 'ObjectBlueprint.json')
 
 if os.path.exists(path) is False:
-    error('ObjectBlueprint template was not found')
+	raise Exception('ObjectBlueprint template was not found')
 
 with open(path, 'r') as f:
-    objectBlueprintTemp = json.loads(f.read())
+	objectBlueprintTemp = json.load(f)
 
-path = os.path.join(os.getcwd(), 'templates', 'ReferenceObjectData.json')
+path = os.path.join(os.path.dirname(__file__), 'ReferenceObjectData.json')
 
 if os.path.exists(path) is False:
-    error('ReferenceObjectData template was not found')
+	raise Exception('ReferenceObjectData template was not found')
 
 with open(path, 'r') as f:
-    referenceObjectDataTemp = json.loads(f.read())
+	referenceObjectDataTemp = json.load(f)
 
-path = os.path.join(os.getcwd(), 'templates', 'EffectReferenceObjectData.json')
+path = os.path.join(os.path.dirname(__file__), 'EffectReferenceObjectData.json')
 
 if os.path.exists(path) is False:
-    error('EffectReferenceObjectData template was not found')
+	raise Exception('EffectReferenceObjectData template was not found')
 
 with open(path, 'r') as f:
-    effectReferenceObjectDataTemp = json.loads(f.read())
+	effectReferenceObjectDataTemp = json.load(f)

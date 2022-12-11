@@ -1,7 +1,6 @@
 rime
 in/**/*.json
 intermediate
-commands.txt
 *__pycache__
 
 .idea/

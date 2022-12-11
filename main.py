@@ -24,7 +24,12 @@ if __name__ == "__main__":
 
 		mod_name = args.name
 		mod_version = args.version
+		in_dir = args.input
 		out_dir = args.output
+
+		if in_dir is None:
+			in_dir = os.path.join(os.getcwd(), 'in')
+
 		if out_dir is None:
 			out_dir = os.path.join(os.getcwd(), 'mods', args.name)
 		else:
@@ -37,7 +42,7 @@ if __name__ == "__main__":
 
 		print("Generating mod {} of version {} in {}".format(mod_name, mod_version, out_dir))
 
-		exb_json.generate_ebx_json(out_dir)
+		exb_json.generate_ebx_json(in_dir, out_dir)
 		superbundle_names = bundles.generate_bundles(rime_path, out_dir)
 		mod_generator.generate_mod(mod_name, mod_version, superbundle_names, out_dir)
 

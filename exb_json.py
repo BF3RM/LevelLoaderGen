@@ -8,7 +8,6 @@ from templates import subWorldDataTemp, objectBlueprintTemp, referenceObjectData
 
 BUNDLE_PREFIX = 'CustomLevels'
 INTERMEDIATE_FOLDER_NAME = 'intermediate'
-INPORT_FOLDER_NAME = 'in'
 MAP_SAVES_FOLDER_NAME = 'map_saves'
 EBX_FOLDER_NAME = 'ebx_json'
 LUA_LEVELS_PATH = os.path.join('ext', 'Shared', 'Levels')
@@ -187,15 +186,14 @@ def save_lua_vanilla_modifications(vanillaRODs: dict, map_name: str, gamemode_na
 ##############################################
 
 
-def generate_ebx_json(out_dir: str):
-	with open(os.path.join(os.getcwd(), 'VariationMap.json'), 'r') as f:
+def generate_ebx_json(in_dir: str, out_dir: str):
+	with open(os.path.join(os.path.dirname(__file__), 'VariationMap.json'), 'r') as f:
 		variation_map = json.load(f)
 
-	in_path = os.path.join(os.getcwd(), INPORT_FOLDER_NAME)
-	map_saves_path = os.path.join(in_path, MAP_SAVES_FOLDER_NAME)
+	map_saves_path = os.path.join(in_dir, MAP_SAVES_FOLDER_NAME)
 
 	# Load gamemode maps (for supporting custom gamemode names)
-	gamemode_map_path = os.path.join(in_path, 'gamemode_map.json')
+	gamemode_map_path = os.path.join(in_dir, 'gamemode_map.json')
 	gamemode_map = None
 	if os.path.exists(gamemode_map_path):
 		with open(gamemode_map_path, 'r') as f:

@@ -10,51 +10,49 @@ EBX_JSON_FOLDER_NAME = 'ebx_json'
 SB_OUTPUT_FOLDER_NAME = 'sb'
 
 def generate_bundles(rime_path: str, out_dir: str):
-	inputPath = os.path.join(
+	input_path = os.path.join(
 		os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_JSON_FOLDER_NAME)
-	outputPath = os.path.join(out_dir, SB_OUTPUT_FOLDER_NAME)
+	output_path = os.path.join(out_dir, SB_OUTPUT_FOLDER_NAME)
 
-	if not os.path.exists(outputPath):
-		os.makedirs(outputPath)
+	if not os.path.exists(output_path):
+		os.makedirs(output_path)
 	commands = []
 
-	superBundleNames = []
+	super_bundle_names = []
 	print('Superbundles:')
 
-	commandsPath = os.path.join(os.getcwd(), 'commands.txt')
+	commands_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, 'commands.txt')
 
-	for mapName in os.listdir(inputPath):
+	for mapName in os.listdir(input_path):
 		# build superbundle
-		sbName = WIN32_PREFIX + '/' + BUNDLE_PREFIX + '/' + mapName + '/' + mapName
-		commands.append('build_sb ' + sbName + ' ' +
-						FROSTBITE_VER + ' \"' + outputPath + '\"\n')
+		sb_name = WIN32_PREFIX + '/' + BUNDLE_PREFIX + '/' + mapName + '/' + mapName
+		commands.append('build_sb ' + sb_name + ' ' +
+						FROSTBITE_VER + ' \"' + output_path + '\"\n')
 
-		for file in os.listdir(os.path.join(inputPath, mapName)):
-			fileName = os.path.splitext(file)[0]  # Remove extension
-			filePath = os.path.join(inputPath, mapName, file)
+		for file in os.listdir(os.path.join(input_path, mapName)):
+			file_name = os.path.splitext(file)[0]  # Remove extension
+			file_path = os.path.join(input_path, mapName, file)
 
-			if not os.path.isfile(filePath):
+			if not os.path.isfile(file_path):
 				continue
 
 			# build bundle
-			bundleNameW32 = WIN32_PREFIX + '/' + \
-							BUNDLE_PREFIX + '/' + mapName + '/' + fileName
-			commands.append('build_bundle ' + bundleNameW32 + '\n')
+			bundle_name_w32 = WIN32_PREFIX + '/' + BUNDLE_PREFIX + '/' + mapName + '/' + file_name
+			commands.append('build_bundle ' + bundle_name_w32 + '\n')
 
-			partitionName = BUNDLE_PREFIX + '/' + mapName + '/' + fileName
+			partition_name = BUNDLE_PREFIX + '/' + mapName + '/' + file_name
 
 			# add partition to bundle and build bundle
-			commands.append('add_json_partition ' +
-							partitionName.lower() + ' \"' + filePath + '\"\n')
+			commands.append('add_json_partition ' + partition_name.lower() + ' \"' + file_path + '\"\n')
 			commands.append('build\n')
 
 		# build superbundle
 		commands.append('build\n\n')
-		superBundleNames.append(sbName)
-		print(sbName)
+		super_bundle_names.append(sb_name)
+		print(sb_name)
 
 	# save commands in commands.txt
-	with open(commandsPath, "w") as f:
+	with open(commands_path, "w") as f:
 		f.writelines(commands)
 
 	print('Attempting to compile with Rime...')
@@ -64,4 +62,4 @@ def generate_bundles(rime_path: str, out_dir: str):
 	# execute commands with rime
 	subprocess.run([os.path.join(rime_path, 'RimeREPL.exe'), commands_path], cwd=rime_path)
 
-	return superBundleNames
+	return super_bundle_names
