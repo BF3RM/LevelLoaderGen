@@ -1,3 +1,2 @@
-python lvlloaderbundlegen.py
-python BuildCLLBundles.py
+python generator.py
 pause
