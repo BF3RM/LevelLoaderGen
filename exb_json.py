@@ -234,11 +234,9 @@ def generate_ebx_json(out_dir: str):
 
 		bundle_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + json_save['header']['gameModeName']
 		partition_name = bundle_name.lower()
-		world_part_data_name = BUNDLE_PREFIX + "/" + \
-							json_save['header']['mapName'] + '/' + 'Main'
+		world_part_data_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + 'Main'
 
-		ebx, vanilla_rods = process_save_file(
-			json_save, world_part_data_name, variation_map)
+		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map)
 
 		ebx['Name'] = partition_name
 		swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]

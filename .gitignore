@@ -1,4 +1,4 @@
-out
+rime
 in/**/*.json
 intermediate
 commands.txt
@@ -9,3 +9,5 @@ commands.txt
 .vs
 .vu/*
 **/.vu/*
+
+mods/**/*
