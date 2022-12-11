@@ -16,7 +16,7 @@ if __name__ == "__main__":
 		parser.add_argument("-i", "--input", type=str, help="Path that contains the input files")
 		parser.add_argument("-o", "--output", type=str, help="Path where the generated mod should be placed")
 		parser.add_argument("--rimepath", type=str,
-							help="Path to RimeREPL.exe. By default it will download Rime for you")
+							help="Path to RimeREPL. By default it will download RimeREPL for you")
 
 		# get it
 		args = parser.parse_args()
@@ -27,6 +27,8 @@ if __name__ == "__main__":
 		out_dir = args.output
 		if out_dir is None:
 			out_dir = os.path.join(os.getcwd(), 'mods', args.name)
+		else:
+			out_dir = os.path.join(out_dir, args.name)
 
 		if rime_path is None:
 			rime_path = rime_downloader.get_path()

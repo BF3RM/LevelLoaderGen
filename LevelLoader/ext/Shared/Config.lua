@@ -1,4 +1,4 @@
 return {
-	LOGGER_ENABLED = true,
+	LOGGER_ENABLED = false,
 	CLIENT_TIMEOUT = 50
 }
