@@ -57,8 +57,6 @@ def generate_bundles(rime_path: str, out_dir: str):
 
 	print('Attempting to compile with Rime...')
 
-	commands_path = os.path.join(os.getcwd(), 'commands.txt')
-
 	# execute commands with rime
 	subprocess.run([os.path.join(rime_path, 'RimeREPL.exe'), commands_path], cwd=rime_path)
 
