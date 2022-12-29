@@ -76,7 +76,7 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 		if obj['origin'] == 3:  # custom children not supported
 			continue
 
-		if obj['origin'] == 1:  # vanilla
+		if obj['origin'] == 1 or obj['origin'] == 4:  # vanilla/nohavok
 			# add to table
 			rod = obj['originalRef']
 
