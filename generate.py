@@ -1,7 +1,7 @@
 import argparse
 import os
 
-import exb_json
+import ebx_json
 import bundles
 import mod_generator
 import rime_downloader
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
 		print("Generating mod {} of version {} in {}".format(mod_name, mod_version, out_dir))
 
-		exb_json.generate_ebx_json(in_dir, out_dir)
+		ebx_json.generate_ebx_json(in_dir, out_dir)
 		superbundle_names = bundles.generate_bundles(rime_path, out_dir)
 		mod_generator.generate_mod(mod_name, mod_version, superbundle_names, out_dir)
 
