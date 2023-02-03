@@ -71,12 +71,14 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 	wpd = ebx['Instances'][wprod['Blueprint']['InstanceGuid']]
 
 	for i, obj in enumerate(json_save['data']):
-		# if obj['origin'] != 2:
-		# 	continue
 		if obj['origin'] == 3:  # custom children not supported
 			continue
 
 		if obj['origin'] == 1:  # vanilla
+			# ignore if its a child of a PrefabBlueprint or SpatialPrefabBlueprint (prefab system not yet implemented)
+			if 'parentData' in obj and (obj['parentData']['typeName'] == 'PrefabBlueprint' or obj['parentData']['typeName'] == 'SpatialPrefabBlueprint'):
+				continue
+
 			# add to table
 			rod = obj['originalRef']
 
@@ -102,7 +104,6 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 		reference_object_data['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
 		reference_object_data['IndexInBlueprint'] = len(wpd['Objects']) + 30001
 		reference_object_data['IsEventConnectionTarget'] = 3  # Realm.Realm_None
-		# Realm.Realm_None
 		reference_object_data['IsPropertyConnectionTarget'] = 3
 		reference_object_data['CastSunShadowEnable'] = True
 		reference_object_data['Excluded'] = False
@@ -119,11 +120,11 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 				'InstanceGuid': variation[1]
 			}
 
-		# Handle transform
-		if 'localTransform' in obj:
-			reference_object_data['BlueprintTransform'] = obj['localTransform']
-		else:
-			reference_object_data['BlueprintTransform'] = obj['transform']
+		# # Handle transform 
+		# if 'localTransform' and obj['origin'] == 2 in obj:
+		# 	reference_object_data['BlueprintTransform'] = obj['localTransform']
+		# else:
+		reference_object_data['BlueprintTransform'] = obj['transform']
 
 		# Fix left/right difference
 		reference_object_data['BlueprintTransform']['right'] = reference_object_data['BlueprintTransform']['left']
