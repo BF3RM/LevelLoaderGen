@@ -26,7 +26,7 @@ If you want to reuse a mapsave for more than just that gamemode, include a `game
 Generating the mod is fairly simple, just run:
 
 ```bash
-python main.py <mod_name> <mod_version>
+python generate.py <mod_name> <mod_version>
 ```
 
 This will generate a mod in `mods/<mod_name>`, you can copy this to your `Server/Admin/Mods` folder to run it.
