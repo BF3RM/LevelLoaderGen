@@ -74,7 +74,7 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 		if obj['origin'] == 3:  # custom children not supported
 			continue
 
-		if obj['origin'] == 1:  # vanilla
+		if obj['origin'] == 1 or obj['origin'] == 4:  # vanilla
 			# ignore if its a child of a PrefabBlueprint or SpatialPrefabBlueprint (prefab system not yet implemented)
 			if 'parentData' in obj and (obj['parentData']['typeName'] == 'PrefabBlueprint' or obj['parentData']['typeName'] == 'SpatialPrefabBlueprint'):
 				continue
