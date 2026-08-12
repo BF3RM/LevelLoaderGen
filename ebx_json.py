@@ -4,6 +4,8 @@ import os
 import copy
 import shutil
 
+import ebx_to_rime
+
 from templates import subWorldDataTemp, objectBlueprintTemp, referenceObjectDataTemp, effectReferenceObjectDataTemp
 
 BUNDLE_PREFIX = 'CustomLevels'
@@ -11,6 +13,49 @@ INTERMEDIATE_FOLDER_NAME = 'intermediate'
 MAP_SAVES_FOLDER_NAME = 'map_saves'
 EBX_FOLDER_NAME = 'ebx_json'
 LUA_LEVELS_PATH = os.path.join('ext', 'Shared', 'Levels')
+
+# Fixed namespace so re-baking a project yields the same partition guids for its overridden
+# blueprints, which keeps rebuilt bundles diffable and reproducible.
+OVERRIDE_PARTITION_NS = uuid.UUID('6f9619ff-8b86-d011-b42d-00c04fc964ff')
+
+
+def build_override_partitions(json_save, map_name):
+	"""Per-instance EBX overrides -> {objectGuid: (partitionGuid, partitionName, partition)}.
+
+	MapEditor clones an instance's blueprint the first time one of its EBX fields is edited, so
+	that the edit isolates to that instance. The clone only exists at runtime, so the save carries
+	it serialized; without this it is dropped and the baked level silently uses the stock blueprint.
+
+	Each overridden instance gets its OWN partition and only its own ReferenceObjectData is
+	repointed, which is what keeps sibling instances of the same prefab on the stock blueprint.
+	"""
+	overrides = {}
+
+	for entry in json_save.get('ebx') or []:
+		object_guid = str(entry.get('objectGuid') or '').strip().lower()
+		partition = entry.get('partition')
+
+		if not object_guid or not partition:
+			# An empty objectGuid marks an Apply-to-Blueprint partition: it has to REPLACE the
+			# stock partition under its original name for every reference to pick it up, including
+			# vanilla ones this generator never emits. Bundle naming can't express that yet, so
+			# skip it loudly rather than emit a partition nothing points at.
+			print('  ! skipping a blueprint-wide override (needs partition shadowing)')
+			continue
+
+		partition_guid = str(uuid.uuid5(OVERRIDE_PARTITION_NS, object_guid))
+		partition_name = BUNDLE_PREFIX + '/' + map_name + '/' + object_guid
+		converted = ebx_to_rime.convert_partition(partition, partition_guid, partition_name)
+
+		dangling = ebx_to_rime.dangling_references(converted)
+		if dangling:
+			# Compiles fine, fails at load — worth saying before it ships.
+			print('  ! %d dangling internal reference(s) in override for %s (first: %s)'
+				  % (len(dangling), object_guid, dangling[0][1]))
+
+		overrides[object_guid] = (partition_guid, partition_name, converted)
+
+	return overrides
 
 
 def create_initial_partition_struct(name):
@@ -59,8 +104,9 @@ def create_initial_partition_struct(name):
 	return ebx
 
 
-def process_save_file(json_save: dict, world_part_data_name: str, variation_map: dict):
+def process_save_file(json_save: dict, world_part_data_name: str, variation_map: dict, overrides: dict = None):
 	vanilla_rods = {}
+	overrides = overrides or {}
 	# Create structure
 	ebx = create_initial_partition_struct(world_part_data_name)
 
@@ -100,8 +146,18 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 		else:
 			reference_object_data = copy.deepcopy(referenceObjectDataTemp)
 
-		reference_object_data['Blueprint']['InstanceGuid'] = obj['blueprintCtrRef']['instanceGuid']
-		reference_object_data['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
+		# An instance with EBX overrides points at its OWN cloned blueprint instead of the stock
+		# one. Every other instance of the same prefab is untouched and still resolves the stock
+		# blueprint, which is what makes the override per-instance rather than global.
+		override = overrides.get(reference_object_data_guid)
+
+		if override is not None:
+			override_partition_guid, _, override_partition = override
+			reference_object_data['Blueprint']['InstanceGuid'] = override_partition['PrimaryInstanceGuid']
+			reference_object_data['Blueprint']['PartitionGuid'] = override_partition_guid
+		else:
+			reference_object_data['Blueprint']['InstanceGuid'] = obj['blueprintCtrRef']['instanceGuid']
+			reference_object_data['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
 		reference_object_data['IndexInBlueprint'] = len(wpd['Objects']) + 30001
 		reference_object_data['IsEventConnectionTarget'] = 3  # Realm.Realm_None
 		reference_object_data['IsPropertyConnectionTarget'] = 3
@@ -167,6 +223,25 @@ def save_ebx_json(ebx: dict, map_name: str, gamemode_name: str):
 
 	with open(os.path.join(ebx_out_path, gamemode_name + '.json'), "w") as f:
 		json.dump(ebx, f, indent=2)
+
+
+def save_override_partitions(overrides: dict, map_name: str):
+	"""Write each overridden instance's blueprint next to the level partition.
+
+	bundles.py adds EVERY file in the map's intermediate folder to the bundle, so writing them
+	here is all that is needed to get them compiled in.
+	"""
+	if not overrides:
+		return
+
+	ebx_out_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME, map_name)
+
+	if not os.path.exists(ebx_out_path):
+		os.makedirs(ebx_out_path)
+
+	for object_guid, (_, _, partition) in overrides.items():
+		with open(os.path.join(ebx_out_path, object_guid + '.json'), 'w') as f:
+			json.dump(partition, f, indent=2)
 
 
 def save_lua_vanilla_modifications(vanillaRODs: dict, map_name: str, gamemode_name: str, out_dir: str):
@@ -235,7 +310,12 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 		partition_name = bundle_name.lower()
 		world_part_data_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + 'Main'
 
-		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map)
+		overrides = build_override_partitions(json_save, json_save['header']['mapName'])
+
+		if overrides:
+			print('Baking %d per-instance EBX override(s)' % len(overrides))
+
+		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map, overrides)
 
 		ebx['Name'] = partition_name
 		swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
@@ -243,6 +323,7 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 
 		# Save EBX in JSON files
 		save_ebx_json(ebx, json_save['header']['mapName'], json_save['header']['gameModeName'])
+		save_override_partitions(overrides, json_save['header']['mapName'])
 
 		save_lua_vanilla_modifications(
 			vanilla_rods, json_save['header']['mapName'], json_save['header']['gameModeName'], out_dir)
