@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 
@@ -57,6 +58,27 @@ def generate_bundles(rime_path: str, out_dir: str):
 					sidecar_partition = BUNDLE_PREFIX + '/' + mapName + '/' + os.path.splitext(sidecar_file)[0]
 					commands.append('add_json_partition ' + sidecar_partition.lower() + ' \"'
 									+ os.path.join(sidecar_path, sidecar_file) + '\"\n')
+
+			# Shadow partitions replace a STOCK partition, so they keep its own name rather than
+			# getting a CustomLevels one — that is what makes every existing reference resolve to
+			# ours. The name lives in the file (Name), since a partition name contains slashes and
+			# cannot be carried in a filename.
+			shadow_path = os.path.join(input_path, mapName, file_name + '.shadow.d')
+
+			if os.path.isdir(shadow_path):
+				for shadow_file in sorted(os.listdir(shadow_path)):
+					if not shadow_file.endswith('.json'):
+						continue
+
+					shadow_full = os.path.join(shadow_path, shadow_file)
+
+					with open(shadow_full, 'r') as f:
+						shadow_name = json.load(f).get('Name', '')
+
+					if not shadow_name:
+						continue
+
+					commands.append('add_json_partition ' + shadow_name.lower() + ' \"' + shadow_full + '\"\n')
 
 			commands.append('build\n')
 

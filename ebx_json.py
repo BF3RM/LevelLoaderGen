@@ -20,7 +20,7 @@ OVERRIDE_PARTITION_NS = uuid.UUID('6f9619ff-8b86-d011-b42d-00c04fc964ff')
 
 
 def build_override_partitions(json_save, map_name):
-	"""Per-instance EBX overrides -> {objectGuid: (partitionGuid, partitionName, partition)}.
+	"""EBX overrides -> ({objectGuid: (partitionGuid, name, partition)}, {stockGuid: (name, partition)}).
 
 	MapEditor clones an instance's blueprint the first time one of its EBX fields is edited, so
 	that the edit isolates to that instance. The clone only exists at runtime, so the save carries
@@ -30,23 +30,42 @@ def build_override_partitions(json_save, map_name):
 	repointed, which is what keeps sibling instances of the same prefab on the stock blueprint.
 	"""
 	overrides = {}
+	shadows = {}
 
 	for entry in json_save.get('ebx') or []:
 		object_guid = str(entry.get('objectGuid') or '').strip().lower()
 		partition = entry.get('partition')
 
-		if not object_guid or not partition:
-			# An empty objectGuid marks an Apply-to-Blueprint partition: it has to REPLACE the
-			# stock partition under its original name for every reference to pick it up, including
-			# vanilla ones this generator never emits. Bundle naming can't express that yet, so
-			# skip it loudly rather than emit a partition nothing points at.
-			print('  ! skipping a blueprint-wide override (needs partition shadowing)')
+		if not partition:
+			continue
+
+		if not object_guid:
+			# Apply-to-Blueprint: emit the modified partition under the STOCK partition's own guid
+			# and name, so the custom bundle SHADOWS it. Every reference picks it up, including the
+			# vanilla ReferenceObjectDatas this generator never emits and therefore could never
+			# repoint. It also keeps the blueprint's identity and registration intact, which a new
+			# blueprint does not.
+			shadow_name = str(entry.get('name') or partition.get('$name') or '').strip()
+			shadow_guid = str(partition.get('$guid') or '').strip()
+
+			if not shadow_name or not shadow_guid:
+				print('  ! blueprint-wide override has no partition name/guid; skipped')
+				continue
+
+			shadow_partition = ebx_to_rime.convert_partition(partition, shadow_guid, shadow_name)
+			pruned = ebx_to_rime.strip_dangling_references(shadow_partition)
+
+			if pruned:
+				print('  ! pruned %d unresolvable reference(s) from %s' % (pruned, shadow_name))
+
+			shadows[shadow_guid] = (shadow_name, shadow_partition)
 			continue
 
 		partition_guid = str(uuid.uuid5(OVERRIDE_PARTITION_NS, object_guid))
 		partition_name = BUNDLE_PREFIX + '/' + map_name + '/' + object_guid
 		converted = ebx_to_rime.convert_partition(partition, partition_guid, partition_name)
 
+		ebx_to_rime.strip_dangling_references(converted)
 		dangling = ebx_to_rime.dangling_references(converted)
 		if dangling:
 			# Compiles fine, fails at load — worth saying before it ships.
@@ -55,7 +74,7 @@ def build_override_partitions(json_save, map_name):
 
 		overrides[object_guid] = (partition_guid, partition_name, converted)
 
-	return overrides
+	return overrides, shadows
 
 
 def create_initial_partition_struct(name):
@@ -260,6 +279,22 @@ def save_override_partitions(overrides: dict, map_name: str, gamemode_name: str)
 			json.dump(partition, f, indent=2)
 
 
+def save_shadow_partitions(shadows: dict, map_name: str, gamemode_name: str):
+	"""Stock partitions replaced wholesale, in a sidecar bundles.py adds under their OWN name."""
+	if not shadows:
+		return
+
+	out_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME,
+							map_name, gamemode_name + '.shadow.d')
+
+	if not os.path.exists(out_path):
+		os.makedirs(out_path)
+
+	for stock_guid, (_, partition) in shadows.items():
+		with open(os.path.join(out_path, stock_guid + '.json'), 'w') as f:
+			json.dump(partition, f, indent=2)
+
+
 def save_lua_vanilla_modifications(vanillaRODs: dict, map_name: str, gamemode_name: str, out_dir: str):
 	# Save list of modified vanilla RODs in Lua tables
 	vanillaRODsJSON = json.dumps(vanillaRODs, indent=1)
@@ -326,10 +361,13 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 		partition_name = bundle_name.lower()
 		world_part_data_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + 'Main'
 
-		overrides = build_override_partitions(json_save, json_save['header']['mapName'])
+		overrides, shadows = build_override_partitions(json_save, json_save['header']['mapName'])
 
 		if overrides:
 			print('Baking %d per-instance EBX override(s)' % len(overrides))
+
+		if shadows:
+			print('Shadowing %d stock blueprint partition(s)' % len(shadows))
 
 		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map, overrides)
 
@@ -340,6 +378,7 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 		# Save EBX in JSON files
 		save_ebx_json(ebx, json_save['header']['mapName'], json_save['header']['gameModeName'])
 		save_override_partitions(overrides, json_save['header']['mapName'], json_save['header']['gameModeName'])
+		save_shadow_partitions(shadows, json_save['header']['mapName'], json_save['header']['gameModeName'])
 
 		save_lua_vanilla_modifications(
 			vanilla_rods, json_save['header']['mapName'], json_save['header']['gameModeName'], out_dir)

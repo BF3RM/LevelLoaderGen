@@ -176,6 +176,53 @@ def dangling_references(converted):
     return missing
 
 
+def strip_dangling_references(converted):
+    """Null out internal references whose target is not in the partition.
+
+    Serializing a whole stock partition skips instances it cannot safely read (PartitionSerializer
+    guards types whose field reads crash the game), so a faithful copy can point at something that
+    was never emitted. Rime refuses the partition outright:
+
+        Found internal reference to instance '<guid>', but this instance doesn't exist in this partition
+
+    A null reference is a lossy but loadable outcome; a rejected partition is no outcome at all.
+    Returns the number pruned so the caller can report it rather than hide it.
+    """
+    guids = {g.lower() for g in converted["Instances"]}
+    partition_guid = str(converted["PartitionGuid"]).lower()
+    pruned = [0]
+
+    def is_dangling(node):
+        return (isinstance(node, dict)
+                and "InstanceGuid" in node and "PartitionGuid" in node
+                and str(node["PartitionGuid"]).lower() == partition_guid
+                and str(node["InstanceGuid"]).lower() not in guids)
+
+    def clean(node):
+        if isinstance(node, dict):
+            if "InstanceGuid" in node and "PartitionGuid" in node:
+                return node
+            out = {}
+            for k, v in node.items():
+                if is_dangling(v):
+                    pruned[0] += 1
+                    continue
+                out[k] = clean(v)
+            return out
+        if isinstance(node, list):
+            result = []
+            for v in node:
+                if is_dangling(v):
+                    pruned[0] += 1
+                    continue
+                result.append(clean(v))
+            return result
+        return node
+
+    converted["Instances"] = {g: clean(i) for g, i in converted["Instances"].items()}
+    return pruned[0]
+
+
 if __name__ == "__main__":
     import argparse
     import sys
