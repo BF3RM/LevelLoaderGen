@@ -43,6 +43,21 @@ def generate_bundles(rime_path: str, out_dir: str):
 
 			# add partition to bundle and build bundle
 			commands.append('add_json_partition ' + partition_name.lower() + ' \"' + file_path + '\"\n')
+
+			# Extra partitions that must live in THIS bundle rather than one of their own — the
+			# level is patched with a SubWorldReferenceObjectData naming a single bundle, so
+			# anything in a separate bundle is never loaded and objects referencing it vanish.
+			sidecar_path = os.path.join(input_path, mapName, file_name + '.d')
+
+			if os.path.isdir(sidecar_path):
+				for sidecar_file in sorted(os.listdir(sidecar_path)):
+					if not sidecar_file.endswith('.json'):
+						continue
+
+					sidecar_partition = BUNDLE_PREFIX + '/' + mapName + '/' + os.path.splitext(sidecar_file)[0]
+					commands.append('add_json_partition ' + sidecar_partition.lower() + ' \"'
+									+ os.path.join(sidecar_path, sidecar_file) + '\"\n')
+
 			commands.append('build\n')
 
 		# build superbundle

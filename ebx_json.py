@@ -155,6 +155,16 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 			override_partition_guid, _, override_partition = override
 			reference_object_data['Blueprint']['InstanceGuid'] = override_partition['PrimaryInstanceGuid']
 			reference_object_data['Blueprint']['PartitionGuid'] = override_partition_guid
+
+			# A blueprint the level points at must ALSO be registered, exactly as the generator
+			# registers the SubWorldData and WorldPartData it creates. Without this the
+			# ReferenceObjectData resolves to nothing and the object simply does not appear in the
+			# world — no error, it is just missing. (Observed: every overridden light pole vanished
+			# from the baked level while unoverridden ones were fine.)
+			rc['BlueprintRegistry'].append({
+				'PartitionGuid': override_partition_guid,
+				'InstanceGuid': override_partition['PrimaryInstanceGuid'],
+			})
 		else:
 			reference_object_data['Blueprint']['InstanceGuid'] = obj['blueprintCtrRef']['instanceGuid']
 			reference_object_data['Blueprint']['PartitionGuid'] = obj['blueprintCtrRef']['partitionGuid']
@@ -225,7 +235,7 @@ def save_ebx_json(ebx: dict, map_name: str, gamemode_name: str):
 		json.dump(ebx, f, indent=2)
 
 
-def save_override_partitions(overrides: dict, map_name: str):
+def save_override_partitions(overrides: dict, map_name: str, gamemode_name: str):
 	"""Write each overridden instance's blueprint next to the level partition.
 
 	bundles.py adds EVERY file in the map's intermediate folder to the bundle, so writing them
@@ -234,7 +244,13 @@ def save_override_partitions(overrides: dict, map_name: str):
 	if not overrides:
 		return
 
-	ebx_out_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME, map_name)
+	# Into a "<gamemode>.d" sidecar folder, NOT next to the gamemode partition. bundles.py builds
+	# one bundle per FILE, and the level is patched with a SubWorldReferenceObjectData naming a
+	# single bundle — so a partition in its own bundle is never loaded, and an object pointing at
+	# it silently disappears (its vanilla original is excluded, and the replacement never resolves).
+	# The sidecar tells bundles.py to put these in the SAME bundle as the level partition.
+	ebx_out_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME,
+								map_name, gamemode_name + '.d')
 
 	if not os.path.exists(ebx_out_path):
 		os.makedirs(ebx_out_path)
@@ -323,7 +339,7 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 
 		# Save EBX in JSON files
 		save_ebx_json(ebx, json_save['header']['mapName'], json_save['header']['gameModeName'])
-		save_override_partitions(overrides, json_save['header']['mapName'])
+		save_override_partitions(overrides, json_save['header']['mapName'], json_save['header']['gameModeName'])
 
 		save_lua_vanilla_modifications(
 			vanilla_rods, json_save['header']['mapName'], json_save['header']['gameModeName'], out_dir)
