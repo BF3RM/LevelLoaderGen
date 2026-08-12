@@ -30,7 +30,7 @@ def build_override_partitions(json_save, map_name):
 	repointed, which is what keeps sibling instances of the same prefab on the stock blueprint.
 	"""
 	overrides = {}
-	shadows = {}
+	blueprint_wide = {}
 
 	for entry in json_save.get('ebx') or []:
 		object_guid = str(entry.get('objectGuid') or '').strip().lower()
@@ -45,20 +45,29 @@ def build_override_partitions(json_save, map_name):
 			# vanilla ReferenceObjectDatas this generator never emits and therefore could never
 			# repoint. It also keeps the blueprint's identity and registration intact, which a new
 			# blueprint does not.
-			shadow_name = str(entry.get('name') or partition.get('$name') or '').strip()
-			shadow_guid = str(partition.get('$guid') or '').strip()
+			# Apply-to-Blueprint. Emitting this under the STOCK partition's own name so the bundle
+			# shadows it was implemented and DISPROVEN in game — a later-loaded bundle does not
+			# override a stock partition, and nothing changed. So emit it as an ordinary custom
+			# partition instead and repoint every ROD we emit that uses that blueprint, which is
+			# the same mechanism per-instance overrides already use and which is known to work.
+			stock_guid = str(partition.get('$guid') or '').strip()
+			stock_primary = str(partition.get('$primaryInstance') or '').strip()
 
-			if not shadow_name or not shadow_guid:
-				print('  ! blueprint-wide override has no partition name/guid; skipped')
+			if not stock_guid or not stock_primary:
+				print('  ! blueprint-wide override has no partition guid/primary instance; skipped')
 				continue
 
-			shadow_partition = ebx_to_rime.convert_partition(partition, shadow_guid, shadow_name)
-			pruned = ebx_to_rime.strip_dangling_references(shadow_partition)
+			new_guid = str(uuid.uuid5(OVERRIDE_PARTITION_NS, 'blueprint:' + stock_guid))
+			new_name = BUNDLE_PREFIX + '/' + map_name + '/bp_' + stock_guid.lower()
+			converted = ebx_to_rime.convert_partition(partition, new_guid, new_name)
+			pruned = ebx_to_rime.strip_dangling_references(converted)
 
 			if pruned:
-				print('  ! pruned %d unresolvable reference(s) from %s' % (pruned, shadow_name))
+				print('  ! pruned %d unresolvable reference(s) from %s' % (pruned, new_name))
 
-			shadows[shadow_guid] = (shadow_name, shadow_partition)
+			# Keyed by the STOCK primary instance guid: any object whose blueprintCtrRef points at
+			# it gets repointed at this copy instead.
+			blueprint_wide[stock_primary.lower()] = (new_guid, new_name, converted)
 			continue
 
 		partition_guid = str(uuid.uuid5(OVERRIDE_PARTITION_NS, object_guid))
@@ -74,7 +83,7 @@ def build_override_partitions(json_save, map_name):
 
 		overrides[object_guid] = (partition_guid, partition_name, converted)
 
-	return overrides, shadows
+	return overrides, blueprint_wide
 
 
 def create_initial_partition_struct(name):
@@ -123,9 +132,10 @@ def create_initial_partition_struct(name):
 	return ebx
 
 
-def process_save_file(json_save: dict, world_part_data_name: str, variation_map: dict, overrides: dict = None):
+def process_save_file(json_save: dict, world_part_data_name: str, variation_map: dict, overrides: dict = None, blueprint_wide: dict = None):
 	vanilla_rods = {}
 	overrides = overrides or {}
+	blueprint_wide = blueprint_wide or {}
 	# Create structure
 	ebx = create_initial_partition_struct(world_part_data_name)
 
@@ -178,7 +188,24 @@ def process_save_file(json_save: dict, world_part_data_name: str, variation_map:
 		# blueprint, which is what makes the override per-instance rather than global.
 		override = overrides.get(reference_object_data_guid)
 
-		if override is not None:
+		# A blueprint-wide override applies to EVERY instance of that blueprint, so any object we
+		# emit which uses it points at the modified copy — unless this instance also has its own
+		# per-instance override, which is more specific and wins.
+		bp_wide = None
+
+		if override is None:
+			bp_key = str(obj['blueprintCtrRef'].get('instanceGuid', '')).lower()
+			bp_wide = blueprint_wide.get(bp_key)
+
+		if bp_wide is not None:
+			bp_guid, _, bp_partition = bp_wide
+			reference_object_data['Blueprint']['InstanceGuid'] = bp_partition['PrimaryInstanceGuid']
+			reference_object_data['Blueprint']['PartitionGuid'] = bp_guid
+			rc['BlueprintRegistry'].append({
+				'PartitionGuid': bp_guid,
+				'InstanceGuid': bp_partition['PrimaryInstanceGuid'],
+			})
+		elif override is not None:
 			override_partition_guid, _, override_partition = override
 			reference_object_data['Blueprint']['InstanceGuid'] = override_partition['PrimaryInstanceGuid']
 			reference_object_data['Blueprint']['PartitionGuid'] = override_partition_guid
@@ -287,19 +314,19 @@ def save_override_partitions(overrides: dict, map_name: str, gamemode_name: str)
 			json.dump(partition, f, indent=2)
 
 
-def save_shadow_partitions(shadows: dict, map_name: str, gamemode_name: str):
-	"""Stock partitions replaced wholesale, in a sidecar bundles.py adds under their OWN name."""
-	if not shadows:
+def save_blueprint_wide_partitions(blueprint_wide: dict, map_name: str, gamemode_name: str):
+	"""Blueprint-wide overrides, written into the same sidecar the per-instance overlays use."""
+	if not blueprint_wide:
 		return
 
 	out_path = os.path.join(os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_FOLDER_NAME,
-							map_name, gamemode_name + '.shadow.d')
+							map_name, gamemode_name + '.d')
 
 	if not os.path.exists(out_path):
 		os.makedirs(out_path)
 
-	for stock_guid, (_, partition) in shadows.items():
-		with open(os.path.join(out_path, stock_guid + '.json'), 'w') as f:
+	for stock_primary, (new_guid, _, partition) in blueprint_wide.items():
+		with open(os.path.join(out_path, 'bp_' + stock_primary + '.json'), 'w') as f:
 			json.dump(partition, f, indent=2)
 
 
@@ -369,15 +396,15 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 		partition_name = bundle_name.lower()
 		world_part_data_name = BUNDLE_PREFIX + "/" + json_save['header']['mapName'] + '/' + 'Main'
 
-		overrides, shadows = build_override_partitions(json_save, json_save['header']['mapName'])
+		overrides, blueprint_wide = build_override_partitions(json_save, json_save['header']['mapName'])
 
 		if overrides:
 			print('Baking %d per-instance EBX override(s)' % len(overrides))
 
-		if shadows:
-			print('Shadowing %d stock blueprint partition(s)' % len(shadows))
+		if blueprint_wide:
+			print('Baking %d blueprint-wide override(s)' % len(blueprint_wide))
 
-		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map, overrides)
+		ebx, vanilla_rods = process_save_file(json_save, world_part_data_name, variation_map, overrides, blueprint_wide)
 
 		ebx['Name'] = partition_name
 		swd = ebx['Instances'][ebx['PrimaryInstanceGuid']]
@@ -386,7 +413,7 @@ def generate_ebx_json(in_dir: str, out_dir: str):
 		# Save EBX in JSON files
 		save_ebx_json(ebx, json_save['header']['mapName'], json_save['header']['gameModeName'])
 		save_override_partitions(overrides, json_save['header']['mapName'], json_save['header']['gameModeName'])
-		save_shadow_partitions(shadows, json_save['header']['mapName'], json_save['header']['gameModeName'])
+		save_blueprint_wide_partitions(blueprint_wide, json_save['header']['mapName'], json_save['header']['gameModeName'])
 
 		save_lua_vanilla_modifications(
 			vanilla_rods, json_save['header']['mapName'], json_save['header']['gameModeName'], out_dir)
