@@ -12,7 +12,12 @@ SB_OUTPUT_FOLDER_NAME = 'sb'
 def generate_bundles(rime_path: str, out_dir: str):
 	input_path = os.path.join(
 		os.getcwd(), INTERMEDIATE_FOLDER_NAME, EBX_JSON_FOLDER_NAME)
-	output_path = os.path.join(out_dir, SB_OUTPUT_FOLDER_NAME)
+	# ABSOLUTE, because this path is handed to Rime and Rime is run with cwd=rime_path (see the
+	# subprocess call at the end of this function). A relative -o/--output therefore resolved
+	# against Rime's own directory: the superbundle was written to <rime>/mods/<name>/sb/ and the
+	# generated mod shipped with an EMPTY sb/ — a level loader with no content, and no error
+	# anywhere, since Rime reported "Superbundle successfully built!" for the copy it did write.
+	output_path = os.path.abspath(os.path.join(out_dir, SB_OUTPUT_FOLDER_NAME))
 
 	if not os.path.exists(output_path):
 		os.makedirs(output_path)
